@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MTG Mana Curve Builder</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #111;
+      color: #eee;
+      margin: 0;
+      padding: 30px;
+    }
+
+    h1 { color: #7aa2ff; }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+    }
+
+    input[type="number"] {
+      padding: 8px;
+      width: 80px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 8px 14px;
+      font-size: 16px;
+      background-color: #7aa2ff;
+      border: none;
+      cursor: pointer;
+    }
+
+    canvas {
+      background-color: #1b1b1b;
+      padding: 15px;
+      margin-top: 20px;
+    }
+
+    .deck-type {
+      margin-top: 25px;
+      padding: 15px;
+      background-color: #1e1e1e;
+      border-left: 4px solid #7aa2ff;
+      font-size: 18px;
+    }
+
+    .card-list {
+      margin-top: 25px;
+    }
+
+    .card-item {
+      display: flex;
+      justify-content: space-between;
+      background-color: #1e1e1e;
+      padding: 8px 12px;
+      margin-bottom: 6px;
+    }
+
+    .remove-btn {
+      background-color: #ff6b6b;
+      color: #000;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Mana Curve Chart</h1>
+
+  <input type="number" id="cmcInput" min="0" max="15">
+  <button onclick="addCMC()">Add Card</button>
+
+  <canvas id="manaChart" width="800" height="400"></canvas>
+
+  <div class="deck-type" id="deckType">
+    Deck Archetype: —
+  </div>
+
+  <div class="card-list" id="cardList"></div>
+</div>
+
+<script>
+  const manaCounts = {};
+  const cardEntries = [];
+
+  const ctx = document.getElementById("manaChart").getContext("2d");
+
+  const manaChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Number of Cards",
+        data: []
+      }]
+    },
+    options: {
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      }
+    }
+  });
+
+  function addCMC() {
+    const input = document.getElementById("cmcInput");
+    const cmc = Number(input.value);
+    if (isNaN(cmc)) return;
+
+    cardEntries.push(cmc);
+    manaCounts[cmc] = (manaCounts[cmc] || 0) + 1;
+
+    input.value = "";
+    updateAll();
+  }
+
+  function removeCard(index) {
+    const cmc = cardEntries[index];
+    cardEntries.splice(index, 1);
+
+    manaCounts[cmc]--;
+    if (manaCounts[cmc] === 0) delete manaCounts[cmc];
+
+    updateAll();
+  }
+
+  function updateAll() {
+    updateChart();
+    updateDeckType();
+    updateCardList();
+  }
+
+  function updateChart() {
+    const labels = Object.keys(manaCounts).map(Number).sort((a,b)=>a-b);
+    manaChart.data.labels = labels.map(String);
+    manaChart.data.datasets[0].data = labels.map(cmc => manaCounts[cmc]);
+    manaChart.update();
+  }
+
+  function updateDeckType() {
+    let total = 0;
+    let weighted = 0;
+
+    for (let cmc in manaCounts) {
+      total += manaCounts[cmc];
+      weighted += cmc * manaCounts[cmc];
+    }
+
+    if (total === 0) {
+      document.getElementById("deckType").textContent = "Deck Archetype: —";
+      return;
+    }
+
+    const avg = weighted / total;
+    let type = "Midrange";
+
+    if (avg <= 2.5) type = "Aggro";
+    else if (avg <= 3.5) type = "Tempo / Midrange";
+    else if (avg <= 4.5) type = "Midrange";
+    else type = "Control / Ramp";
+
+    document.getElementById("deckType").textContent =
+      `Deck Archetype: ${type} (Avg CMC: ${avg.toFixed(2)})`;
+  }
+
+  function updateCardList() {
+    const list = document.getElementById("cardList");
+    list.innerHTML = "";
+
+    cardEntries.forEach((cmc, index) => {
+      const div = document.createElement("div");
+      div.className = "card-item";
+      div.innerHTML = `
+        <span>CMC ${cmc}</span>
+        <button class="remove-btn" onclick="removeCard(${index})">Remove</button>
+      `;
+      list.appendChild(div);
+    });
+  }
+</script>
+
+</body>
+</html>
